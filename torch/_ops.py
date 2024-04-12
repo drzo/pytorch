@@ -782,6 +782,7 @@ class OpOverload(OperatorBase):
 class TorchBindOpOverload(OpOverload):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        torch._higher_order_ops.effects.register_side_effect_op(self)
 
     def _fallthrough_keys(self) -> List[DispatchKey]:
         # TODO: we should be calling the fallback for these, but a fallthrough is almost close
@@ -792,6 +793,7 @@ class TorchBindOpOverload(OpOverload):
             DispatchKey.AutogradCUDA,
             DispatchKey.ADInplaceOrView,
             DispatchKey.PythonTLSSnapshot,
+            DispatchKey.PythonDispatcher,
         ]
 
         def _may_use_fallthrough_instead_of_fallback(key: DispatchKey):
