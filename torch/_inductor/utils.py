@@ -1519,13 +1519,18 @@ def device_need_guard(device: str):
 
 @functools.lru_cache(None)
 def aoti_eager_cache_dir():
-    return Path.home() / ".cache" / "torch" / "aoti_eager"
+    cache_dir = os.environ.get("TORCHINDUCTOR_AOTI_EAGER_CACHE_DIR")
+    if cache_dir is None:
+        return Path.home() / ".cache" / "torch" / "aoti_eager"
+    else:
+        return Path(cache_dir)
 
 
 def load_aoti_eager_cache(
     ns: str, op_func_name: str, op_overload_name: str, device_type: str
 ):
     device_kernel_cache = aoti_eager_cache_dir() / ns.lower() / device_type.lower()
+    op_overload_name = op_overload_name if op_overload_name else "default"
     op_conf = device_kernel_cache / f"{op_func_name}.{op_overload_name}.json"
     if not op_conf.exists():
         return None
@@ -1546,6 +1551,7 @@ def load_aoti_eager_cache(
                     "FALSE"
                 ], "Only support static shape for now"
                 meta_info["is_dynamic"] = meta_info["is_dynamic"].upper() == "TRUE"
+                meta_info["device_index"] = ast.literal_eval(meta_info["device_index"])
                 # Convert string to list for sizes and strides to make C++ vector parser easier
                 meta_info["sizes"] = ast.literal_eval(meta_info["sizes"])
                 meta_info["strides"] = ast.literal_eval(meta_info["strides"])
@@ -1601,6 +1607,11 @@ def aot_compile_with_persistent_cache(
         meta_info_item = {}
         meta_info_item["is_dynamic"] = f"{dynamic}"
         meta_info_item["device_type"] = f"{input_tensor.device.type}"
+
+        device_index = input_tensor.device.index
+        device_index = device_index if device_index else -1
+        meta_info_item["device_index"] = f"{device_index}"
+
         meta_info_item["dtype"] = f"{input_tensor.dtype}"
         meta_info_item["sizes"] = f"{list(input_tensor.size())}"
         meta_info_item["strides"] = f"{list(input_tensor.stride())}"
