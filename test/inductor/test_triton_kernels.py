@@ -1014,6 +1014,26 @@ def forward(self, x_1, output_1):
 
     @requires_cuda
     @skipIfRocm
+    def test_triton_kernel_equal_to_1_float_arg(self):
+        def f(x, y):
+            out = torch.empty_like(x)
+            n_elements = x.numel()
+            add_kernel_with_scaling[(n_elements,)](
+                x, y, out, n_elements, 1.0, BLOCK_SIZE=16
+            )
+            return out
+
+        x = torch.randn(2, device="cuda")
+        y = torch.randn(2, device="cuda")
+        eager_out = f(x, y)
+        compiled_out, sources = run_and_get_code(torch.compile(f), x, y)
+
+        # float 1.0 should not be in equal_to_1
+        self.assertTrue("equal_to_1=()" in sources[0])
+        self.assertEqual(compiled_out, eager_out)
+
+    @requires_cuda
+    @skipIfRocm
     def test_triton_kernel_with_imported_symbol(self):
         @triton.jit
         def add_kernel_with_imported_symbol(
